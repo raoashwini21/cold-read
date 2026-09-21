@@ -1,0 +1,766 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cold Read — would this land?</title>
+<meta name="description" content="Paste a cold email or DM. Jev reads it in under a second and tells you if it lands or gets archived.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#FFF6E9;
+    --ink:#221A12;
+    --ink-soft:#7A6B57;
+    --card:#FFFFFF;
+    --line:#221A12;
+    --pink:#FF3D7A;
+    --pink-soft:#FFE0EB;
+    --blue:#2E6BFF;
+    --blue-soft:#DCE6FF;
+    --good:#00B37E;
+    --good-soft:#CFF3E4;
+    --bad:#FF4433;
+    --bad-soft:#FFE1DA;
+    --mid:#FFB100;
+    --mid-soft:#FFEEC2;
+    --shadow-off:5px;
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --bg:#1B140E;
+      --ink:#FBF1E3;
+      --ink-soft:#B7A88F;
+      --card:#241B12;
+      --line:#FBF1E3;
+      --pink:#FF6B9D;
+      --pink-soft:#3A1F2A;
+      --blue:#7DA0FF;
+      --blue-soft:#1E2740;
+      --good:#3CE3A6;
+      --good-soft:#123528;
+      --bad:#FF7A65;
+      --bad-soft:#3A1E17;
+      --mid:#FFCB4D;
+      --mid-soft:#3B2C0C;
+    }
+  }
+  :root[data-theme="dark"]{
+    --bg:#1B140E;
+    --ink:#FBF1E3;
+    --ink-soft:#B7A88F;
+    --card:#241B12;
+    --line:#FBF1E3;
+    --pink:#FF6B9D;
+    --pink-soft:#3A1F2A;
+    --blue:#7DA0FF;
+    --blue-soft:#1E2740;
+    --good:#3CE3A6;
+    --good-soft:#123528;
+    --bad:#FF7A65;
+    --bad-soft:#3A1E17;
+    --mid:#FFCB4D;
+    --mid-soft:#3B2C0C;
+  }
+
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:var(--bg);
+    color:var(--ink);
+    font-family:'Plus Jakarta Sans', system-ui, sans-serif;
+    padding:40px 16px 72px;
+    -webkit-font-smoothing:antialiased;
+  }
+  .wrap{max-width:640px;margin:0 auto;}
+
+  header.top{
+    display:flex;justify-content:space-between;align-items:flex-start;
+    padding-bottom:20px;margin-bottom:30px;
+  }
+  .brand{
+    font-family:'IBM Plex Mono',monospace;
+    font-weight:800;font-size:18px;letter-spacing:0.01em;
+    display:flex;flex-direction:column;gap:3px;
+  }
+  .brand-row{display:inline-flex;align-items:center;gap:8px;}
+  .brand .dot{
+    width:10px;height:10px;border-radius:3px;
+    background:var(--pink);
+    transform:rotate(12deg);
+    flex:none;
+  }
+  .brand small{
+    display:flex;align-items:center;gap:6px;
+    font-weight:600;color:var(--ink-soft);font-size:11px;
+    letter-spacing:0.07em;text-transform:uppercase;margin-top:7px;
+    font-family:'Plus Jakarta Sans',sans-serif;
+  }
+  .pulse-dot{
+    width:7px;height:7px;border-radius:50%;background:var(--good);
+    animation:pulse 2s ease-out infinite;
+    flex:none;
+  }
+  @keyframes pulse{
+    0%{ box-shadow:0 0 0 0 color-mix(in srgb, var(--good) 55%, transparent); }
+    70%{ box-shadow:0 0 0 7px transparent; }
+    100%{ box-shadow:0 0 0 0 transparent; }
+  }
+  .postmark{
+    font-family:'IBM Plex Mono',monospace;
+    font-size:11px;color:var(--ink-soft);text-align:right;line-height:1.7;
+    padding:5px 10px;border:2px solid var(--line);border-radius:8px;
+    transform:rotate(2deg);background:var(--card);
+  }
+  .postmark b{color:var(--pink);font-weight:700;}
+
+  h1{
+    font-family:'Plus Jakarta Sans',sans-serif;
+    font-weight:800;
+    font-size:clamp(30px,7vw,42px);
+    line-height:1.08;
+    margin:0 0 12px;
+    text-wrap:balance;
+    letter-spacing:-0.02em;
+  }
+  h1 .pop{
+    color:var(--bad);
+    text-decoration:underline;
+    text-decoration-style:wavy;
+    text-decoration-thickness:3px;
+    text-underline-offset:5px;
+  }
+  p.lede{
+    color:var(--ink-soft);
+    font-size:15.5px;line-height:1.65;
+    margin:0 0 32px;
+    max-width:54ch;
+    font-weight:500;
+  }
+
+  .card{
+    background:var(--card);
+    border:2.5px solid var(--line);
+    border-radius:16px;
+    padding:22px;
+    margin-bottom:18px;
+    box-shadow:var(--shadow-off) var(--shadow-off) 0 var(--line);
+    transition:transform 0.15s ease, box-shadow 0.15s ease;
+  }
+
+  .field-label{
+    font-family:'IBM Plex Mono',monospace;
+    font-size:11px;letter-spacing:0.08em;text-transform:uppercase;
+    color:var(--ink-soft);font-weight:600;
+    display:flex;justify-content:space-between;align-items:center;
+    margin-bottom:11px;
+  }
+  textarea, input[type="password"], input[type="text"]{
+    width:100%;
+    font-family:'Plus Jakarta Sans', sans-serif;
+    font-size:14.5px;font-weight:500;
+    color:var(--ink);
+    background:var(--bg);
+    border:2px solid var(--line);
+    border-radius:10px;
+    padding:12px 14px;
+    resize:vertical;
+    line-height:1.55;
+  }
+  textarea:focus, input:focus{
+    outline:none;border-color:var(--blue);
+    box-shadow:3px 3px 0 var(--blue);
+  }
+  textarea#message{min-height:130px;}
+
+  .key-row{display:flex;gap:8px;}
+  .key-row input{flex:1;font-family:'IBM Plex Mono',monospace;font-size:13px;}
+  .ghost-btn{
+    font-family:'IBM Plex Mono',monospace;
+    font-size:12px;font-weight:600;
+    background:var(--card);
+    border:2px solid var(--line);
+    color:var(--ink);
+    padding:0 14px;
+    border-radius:9px;
+    cursor:pointer;
+    white-space:nowrap;
+    transition:transform 0.1s ease, box-shadow 0.1s ease, background 0.15s ease;
+    box-shadow:3px 3px 0 var(--line);
+  }
+  .ghost-btn:hover{background:var(--blue-soft);}
+  .ghost-btn:active{transform:translate(3px,3px);box-shadow:0 0 0 var(--line);}
+
+  .remember{
+    display:flex;align-items:center;gap:7px;
+    margin-top:11px;font-size:12.5px;color:var(--ink-soft);font-weight:500;
+  }
+  .remember input{width:auto;accent-color:var(--pink);}
+
+  .keynote{font-size:12.5px;color:var(--ink-soft);margin-top:12px;line-height:1.6;font-weight:500;}
+  .keynote a{color:var(--blue);font-weight:700;}
+
+  .run-btn{
+    position:relative;
+    width:100%;
+    font-family:'IBM Plex Mono',monospace;
+    font-size:15px;font-weight:700;letter-spacing:0.02em;
+    background:var(--pink);
+    color:#FFF6E9;
+    border:2.5px solid var(--line);
+    border-radius:12px;
+    padding:16px;
+    cursor:pointer;
+    margin-top:16px;
+    transition:transform 0.1s ease, box-shadow 0.1s ease;
+    box-shadow:5px 5px 0 var(--line);
+    display:flex;align-items:center;justify-content:center;gap:10px;
+  }
+  .run-btn:disabled{opacity:0.65;cursor:default;}
+  .run-btn:not(:disabled):hover{transform:translate(-1px,-1px);box-shadow:6px 6px 0 var(--line);}
+  .run-btn:not(:disabled):active{transform:translate(4px,4px);box-shadow:1px 1px 0 var(--line);}
+  .spinner{
+    width:14px;height:14px;border-radius:50%;
+    border:2.5px solid rgba(255,255,255,0.4);
+    border-top-color:#fff;
+    animation:spin 0.7s linear infinite;
+    display:none;
+  }
+  .run-btn.loading .spinner{display:inline-block;}
+  @keyframes spin{to{transform:rotate(360deg);}}
+
+  .error-box{
+    display:none;
+    background:var(--bad-soft);
+    border:2.5px solid var(--bad);
+    color:var(--bad);
+    border-radius:12px;
+    padding:14px 16px;
+    font-size:13px;font-weight:600;
+    line-height:1.6;
+    margin-top:16px;
+    animation:shake 0.4s ease;
+    box-shadow:4px 4px 0 var(--bad);
+  }
+  @keyframes shake{
+    10%,90%{transform:translateX(-1px);}
+    20%,80%{transform:translateX(2px);}
+    30%,50%,70%{transform:translateX(-3px);}
+    40%,60%{transform:translateX(3px);}
+  }
+  .error-box pre{
+    background:rgba(0,0,0,0.08);
+    padding:9px;border-radius:8px;
+    overflow-x:auto;
+    font-size:12px;font-weight:400;
+    margin:8px 0 0;
+    white-space:pre-wrap;
+    word-break:break-word;
+  }
+
+  #result{display:none;}
+  #result.show{
+    display:block;
+    animation:rise 0.45s cubic-bezier(0.22,1,0.36,1);
+  }
+  @keyframes rise{
+    from{opacity:0;transform:translateY(14px);}
+    to{opacity:1;transform:translateY(0);}
+  }
+
+  .stamp-block{
+    position:relative;
+    text-align:center;
+    padding:38px 20px 30px;
+    border:2.5px dashed var(--line);
+    border-radius:18px;
+    margin-bottom:18px;
+    background:var(--card);
+    overflow:hidden;
+  }
+  .stamp{
+    display:inline-block;
+    font-family:'IBM Plex Mono',monospace;
+    font-weight:800;
+    font-size:clamp(26px,7vw,38px);
+    letter-spacing:0.04em;
+    padding:14px 30px;
+    border-radius:10px;
+    border:3.5px solid currentColor;
+    text-transform:uppercase;
+    animation:stamp-in 0.55s cubic-bezier(0.2,1.4,0.4,1);
+    box-shadow:6px 6px 0 currentColor;
+  }
+  @keyframes stamp-in{
+    0%{ transform:scale(2.2) rotate(-14deg); opacity:0; }
+    60%{ transform:scale(0.94) rotate(-3deg); opacity:1; }
+    100%{ transform:scale(1) rotate(-3deg); opacity:1; }
+  }
+  .stamp.good{color:var(--good);background:var(--good-soft);}
+  .stamp.bad{color:var(--bad);background:var(--bad-soft);}
+  .stamp.mid{color:var(--mid);background:var(--mid-soft);}
+  .stamp-sub{
+    margin-top:18px;font-size:13.5px;color:var(--ink-soft);font-weight:600;
+    font-family:'Plus Jakarta Sans',sans-serif;
+  }
+
+  .confetti-piece{
+    position:absolute;top:-10px;
+    width:9px;height:14px;
+    opacity:0.95;border-radius:2px;
+    pointer-events:none;
+    animation-name:confetti-fall;
+    animation-timing-function:cubic-bezier(0.4,0.1,0.6,0.9);
+    animation-fill-mode:forwards;
+  }
+  @keyframes confetti-fall{
+    0%{ transform:translateY(0) rotate(0deg); opacity:1; }
+    100%{ transform:translateY(220px) rotate(540deg); opacity:0; }
+  }
+
+  .checks{display:flex;flex-direction:column;gap:17px;}
+  .check-top{
+    display:flex;justify-content:space-between;align-items:baseline;
+    font-family:'IBM Plex Mono',monospace;
+    font-size:12.5px;margin-bottom:7px;font-weight:600;
+  }
+  .check-name{color:var(--ink);}
+  .check-pct{color:var(--ink-soft);font-variant-numeric:tabular-nums;font-weight:700;}
+  .meter{
+    height:11px;background:var(--bg);border:2px solid var(--line);
+    border-radius:999px;overflow:hidden;
+  }
+  .meter-fill{
+    height:100%;border-radius:999px;
+    width:0%;
+    transition:width 0.9s cubic-bezier(0.16,1,0.3,1);
+  }
+  .meter-fill.pos{background:var(--good);}
+  .meter-fill.neg{background:var(--bad);}
+  .check-note{font-size:11.5px;color:var(--ink-soft);margin-top:6px;font-weight:500;}
+
+  .actions{display:flex;gap:10px;margin-top:22px;}
+  .actions button{flex:1;padding:12px;}
+
+  footer{
+    margin-top:44px;padding-top:22px;border-top:2.5px dashed var(--line);
+    font-size:12.5px;color:var(--ink-soft);line-height:1.6;font-weight:500;
+    text-align:center;
+  }
+  footer a{color:var(--blue);font-weight:700;}
+
+  .raw-toggle{
+    font-family:'IBM Plex Mono',monospace;
+    font-size:11px;color:var(--ink-soft);font-weight:600;
+    background:none;border:none;cursor:pointer;
+    text-decoration:underline;padding:0;margin-top:18px;
+  }
+  #rawOutput{display:none;margin-top:8px;}
+  #rawOutput pre{
+    background:var(--bg);border:2px solid var(--line);
+    padding:10px;border-radius:8px;font-size:11px;
+    overflow-x:auto;white-space:pre-wrap;word-break:break-word;
+    max-height:260px;overflow-y:auto;
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="top">
+    <div class="brand">
+      <span class="brand-row"><span class="dot"></span>COLD READ</span>
+      <small><span class="pulse-dot"></span>a Jev-powered gate</small>
+    </div>
+    <div class="postmark"><b>JEV-LATEST</b><br>~150ms per read</div>
+  </header>
+
+  <h1>Would this land, or get <span class="pop">archived</span>?</h1>
+  <p class="lede">Paste a cold email or DM below. Jev reads it against four checks and gives you a verdict before you hit send — runs on your own API key, nothing stored.</p>
+
+  <div class="card">
+    <div class="field-label">Your Jev API key</div>
+    <div class="key-row">
+      <input type="password" id="apiKey" placeholder="apikey_..." autocomplete="off" spellcheck="false">
+      <button class="ghost-btn" id="toggleKey" type="button">show</button>
+    </div>
+    <label class="remember"><input type="checkbox" id="rememberKey"> remember on this device only</label>
+    <p class="keynote">Passed through per-request to run your check, never stored. Don't have a key yet? Get early access at <a href="https://typesafe.ai" target="_blank" rel="noopener">typesafe.ai</a>, then generate one at <a href="https://console.typesafe.ai/settings/keys" target="_blank" rel="noopener">console.typesafe.ai/settings/keys</a>.</p>
+  </div>
+
+  <div class="card">
+    <div class="field-label">Who's this for <span style="text-transform:none;letter-spacing:0;font-weight:400;">(optional)</span></div>
+    <input type="text" id="icp" placeholder="e.g. B2B SaaS founders doing outbound, 10-50 employees" autocomplete="off">
+    <p class="keynote" style="margin-top:8px;">Leave blank for a generic copy check. Fill it in and Jev also checks whether the message actually speaks to that audience.</p>
+  </div>
+
+  <div class="card">
+    <div class="field-label">The message</div>
+    <textarea id="message" placeholder="Paste the cold email or DM you're about to send...">Hi there, I noticed you're doing outbound at your company. Our platform helps teams like yours automate LinkedIn and email outreach at scale with AI. Would love to show you a quick demo this week if you have 15 minutes?</textarea>
+    <button class="run-btn" id="runBtn" type="button">
+      <span class="spinner"></span>
+      <span id="runBtnLabel">Run it through Jev</span>
+    </button>
+
+    <div class="error-box" id="errorBox"></div>
+  </div>
+
+  <div id="result">
+    <div class="stamp-block">
+      <div class="stamp" id="stampEl">—</div>
+      <div class="stamp-sub" id="stampSub"></div>
+    </div>
+
+    <div class="card">
+      <div class="checks" id="checksEl"></div>
+      <div class="actions">
+        <button class="ghost-btn" id="copyBtn" type="button">copy result</button>
+        <button class="ghost-btn" id="runAgainBtn" type="button">test another</button>
+      </div>
+      <button class="raw-toggle" id="rawToggle" type="button">show raw response</button>
+      <div id="rawOutput"><pre id="rawPre"></pre></div>
+    </div>
+  </div>
+
+  <footer>
+    Built on <a href="https://typesafe.ai" target="_blank" rel="noopener">TypeSafe's Jev</a>. Nothing you paste here is stored anywhere but your own browser.
+  </footer>
+
+</div>
+
+<script>
+(function(){
+  // Paste your n8n relay's Production URL here after importing and activating
+  // jev-cors-relay.json (see that file's Setup Notes sticky). Everything else
+  // in this page stays the same - only this one line changes.
+  const RELAY_URL = 'https://contentworkflows.app.n8n.cloud/webhook/jev-relay';
+
+  const $ = (id) => document.getElementById(id);
+  const apiKeyEl = $('apiKey');
+  const rememberEl = $('rememberKey');
+  const toggleKeyBtn = $('toggleKey');
+  const icpEl = $('icp');
+  const messageEl = $('message');
+  const runBtn = $('runBtn');
+  const runBtnLabel = $('runBtnLabel');
+  const errorBox = $('errorBox');
+  const resultEl = $('result');
+  const stampEl = $('stampEl');
+  const stampSub = $('stampSub');
+  const checksEl = $('checksEl');
+  const copyBtn = $('copyBtn');
+  const runAgainBtn = $('runAgainBtn');
+  const rawToggle = $('rawToggle');
+  const rawOutput = $('rawOutput');
+  const rawPre = $('rawPre');
+
+  // restore remembered key, best-effort
+  try{
+    const saved = localStorage.getItem('coldread_key');
+    if(saved){ apiKeyEl.value = saved; rememberEl.checked = true; }
+  }catch(e){}
+
+  toggleKeyBtn.addEventListener('click', function(){
+    const isPw = apiKeyEl.type === 'password';
+    apiKeyEl.type = isPw ? 'text' : 'password';
+    toggleKeyBtn.textContent = isPw ? 'hide' : 'show';
+  });
+
+  const BASE_QUESTIONS = {
+    personalized: {
+      type: 'noul',
+      instructions: 'The message opens with something specific to the recipient (their name used meaningfully, their company, their role, or a real detail about their work) rather than a generic template greeting.'
+    },
+    clear_ask: {
+      type: 'noul',
+      instructions: 'The message makes one clear, low-friction ask (like a specific time, a yes/no question, or a single next step) rather than being vague or asking for too much at once.'
+    },
+    spam_risk: {
+      type: 'noul',
+      instructions: 'The message reads like spam: excessive urgency language, ALL CAPS, multiple links, dollar signs, or generic mass-blast phrasing that a spam filter or a skeptical reader would flag.'
+    },
+    reason_now: {
+      type: 'noul',
+      instructions: 'The message gives the recipient a real reason to respond soon, rather than something that could be ignored indefinitely with no consequence.'
+    }
+  };
+
+  // Builds the question set for one run. When an ICP is given, adds a
+  // fifth, narrowly-worded question about audience fit - kept factual
+  // ("does the text reference this") rather than a subjective "is this
+  // a good fit", per TypeSafe's own guidance on splitting finding from judging.
+  function buildQuestions(icp){
+    const q = Object.assign({}, BASE_QUESTIONS);
+    if (icp){
+      q.icp_fit = {
+        type: 'noul',
+        instructions: 'The message references a problem, role, or detail that someone matching this description would specifically recognize as their own: "' + icp + '". A generic message that could be sent to anyone does not count, even if well-written.'
+      };
+    }
+    return q;
+  }
+
+  function showError(title, detail, curl){
+    errorBox.innerHTML = '<strong>' + title + '</strong><br>' + detail +
+      (curl ? '<pre>' + curl + '</pre>' : '');
+    errorBox.style.display = 'block';
+  }
+
+  function hideError(){
+    errorBox.style.display = 'none';
+    errorBox.innerHTML = '';
+  }
+
+  function buildCurl(key, message, questions){
+    const body = JSON.stringify({
+      model: 'jev-latest',
+      state: { message: message },
+      questions: questions
+    }, null, 2);
+    return "curl https://api.typesafe.ai/v1/systemone \\\n  -H \"Authorization: Bearer " + (key || 'YOUR_KEY') + "\" \\\n  -H \"Content-Type: application/json\" \\\n  -d '" + body.replace(/'/g, "'\\''") + "'";
+  }
+
+  // Pulls a 0-1 probability out of a response value. TypeSafe's systemone
+  // endpoint returns answers.<id>.noul for a 'noul' (yes/no-style) question -
+  // fall back to a couple of other plausible shapes just in case.
+  function extractProb(v){
+    if (v == null) return null;
+    if (typeof v === 'number') return v;
+    if (typeof v === 'object'){
+      if (typeof v.noul === 'number') return v.noul;
+      if (typeof v.score === 'number') return v.score;
+      if (typeof v.confidence === 'number') return v.confidence;
+      if (typeof v.probability === 'number') return v.probability;
+    }
+    return null;
+  }
+
+  function parseResponse(data, questions){
+    const container = data.answers || data.questions || data.results || data;
+    const out = {};
+    for (const key of Object.keys(questions)){
+      out[key] = extractProb(container[key]);
+    }
+    const gotAny = Object.values(out).some(v => v !== null);
+    return gotAny ? out : null;
+  }
+
+  function pct(v){
+    return v === null || v === undefined ? '—' : Math.round(v * 100) + '%';
+  }
+
+  const stampBlockEl = document.querySelector('.stamp-block');
+  const CONFETTI_COLORS = ['#FF3D7A', '#2E6BFF', '#00B37E', '#FFB100'];
+  function burstConfetti(){
+    if (!stampBlockEl) return;
+    for (let i = 0; i < 26; i++){
+      const piece = document.createElement('div');
+      piece.className = 'confetti-piece';
+      piece.style.left = Math.round(Math.random() * 100) + '%';
+      piece.style.background = CONFETTI_COLORS[i % CONFETTI_COLORS.length];
+      piece.style.transform = 'rotate(' + Math.round(Math.random() * 360) + 'deg)';
+      piece.style.animationDuration = (0.9 + Math.random() * 0.6) + 's';
+      piece.style.animationDelay = (Math.random() * 0.15) + 's';
+      stampBlockEl.appendChild(piece);
+      piece.addEventListener('animationend', function(){ piece.remove(); });
+    }
+  }
+
+  function renderResult(scores, rawData){
+    const p = scores.personalized ?? 0;
+    const c = scores.clear_ask ?? 0;
+    const s = scores.spam_risk ?? 0;
+    const r = scores.reason_now ?? 0;
+    const hasIcp = Object.prototype.hasOwnProperty.call(scores, 'icp_fit');
+    const i = hasIcp ? (scores.icp_fit ?? 0) : null;
+
+    let verdict, verdictClass, sub;
+    if (s >= 0.6){
+      verdict = 'ARCHIVED'; verdictClass = 'bad';
+      sub = 'reads too much like spam to get past the first line';
+    } else if (hasIcp && i < 0.4){
+      verdict = 'ARCHIVED'; verdictClass = 'bad';
+      sub = "reads fine, but doesn't speak to the audience you gave it";
+    } else if (p >= 0.7 && c >= 0.6 && r >= 0.5 && s <= 0.35 && (!hasIcp || i >= 0.6)){
+      verdict = 'DELIVERED'; verdictClass = 'good';
+      sub = hasIcp ? 'specific, clear, and actually fits that audience' : 'specific, clear, and gives a real reason to reply';
+    } else {
+      verdict = 'BORDERLINE'; verdictClass = 'mid';
+      sub = hasIcp && i < 0.6
+        ? 'decent copy, but a bit generic for that specific audience'
+        : 'could go either way — worth tightening before you send';
+    }
+
+    // restart the stamp entrance animation on every run
+    stampEl.style.animation = 'none';
+    void stampEl.offsetWidth;
+    stampEl.style.animation = '';
+
+    stampEl.textContent = verdict;
+    stampEl.className = 'stamp ' + verdictClass;
+    stampSub.textContent = sub;
+
+    if (verdictClass === 'good'){
+      setTimeout(burstConfetti, 150);
+    }
+
+    const rows = [
+      ['personalized', p, 'pos', 'specific to the recipient, not a template fill'],
+      ['clear ask', c, 'pos', 'one obvious, low-friction next step'],
+      ['spam risk', s, 'neg', 'lower is better here'],
+      ['reason to reply now', r, 'pos', 'a real reason to answer soon, not "whenever"']
+    ];
+    if (hasIcp){
+      rows.push(['fits that audience', i, 'pos', 'speaks to something this specific audience would recognize']);
+    }
+
+    checksEl.innerHTML = rows.map(function(row){
+      const [name, val, dir, note] = row;
+      const fillClass = dir === 'neg' ? (val >= 0.5 ? 'neg' : 'pos') : (val >= 0.5 ? 'pos' : 'neg');
+      return '<div class="check-row">' +
+        '<div class="check-top"><span class="check-name">' + name + '</span><span class="check-pct">' + pct(val) + '</span></div>' +
+        '<div class="meter"><div class="meter-fill ' + fillClass + '" data-target="' + (val === null ? 0 : Math.round(val * 100)) + '"></div></div>' +
+        '<div class="check-note">' + note + '</div>' +
+        '</div>';
+    }).join('');
+
+    rawPre.textContent = JSON.stringify(rawData, null, 2);
+    resultEl.classList.remove('show');
+    resultEl.style.display = 'block';
+    // reflow, then trigger entrance + meter-fill animation from 0
+    void resultEl.offsetWidth;
+    resultEl.classList.add('show');
+    requestAnimationFrame(function(){
+      requestAnimationFrame(function(){
+        checksEl.querySelectorAll('.meter-fill').forEach(function(el){
+          el.style.width = el.dataset.target + '%';
+        });
+      });
+    });
+    resultEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+    resultEl.dataset.shareText =
+      'Cold Read verdict: ' + verdict + ' (' + pct(p) + ' personalized, ' + pct(c) + ' clear ask, ' +
+      pct(s) + ' spam risk, ' + pct(r) + ' reason to reply now' +
+      (hasIcp ? ', ' + pct(i) + ' fits audience' : '') + ') — checked with Jev.';
+  }
+
+  async function run(){
+    hideError();
+    resultEl.classList.remove('show');
+    resultEl.style.display = 'none';
+
+    const key = apiKeyEl.value.trim();
+    const message = messageEl.value.trim();
+    const icp = icpEl.value.trim();
+    const questions = buildQuestions(icp);
+
+    if (!key){
+      showError('Missing API key', 'Paste your Jev (TypeSafe) key above first.');
+      return;
+    }
+    if (!message){
+      showError('Missing message', 'Paste the email or DM you want checked.');
+      return;
+    }
+
+    try{
+      if (rememberEl.checked){ localStorage.setItem('coldread_key', key); }
+      else{ localStorage.removeItem('coldread_key'); }
+    }catch(e){}
+
+    runBtn.disabled = true;
+    runBtn.classList.add('loading');
+    runBtnLabel.textContent = 'reading...';
+
+    if (RELAY_URL.indexOf('PASTE_YOUR') === 0){
+      runBtn.disabled = false;
+      runBtn.classList.remove('loading');
+      runBtnLabel.textContent = 'Run it through Jev';
+      showError(
+        'Relay URL not set yet',
+        'This page calls TypeSafe through a small n8n relay (browsers can\'t call the Jev API directly - see the setup notes). Import jev-cors-relay.json into n8n, activate it, and paste its webhook URL into the RELAY_URL constant near the top of this file\'s &lt;script&gt; tag.'
+      );
+      return;
+    }
+
+    try{
+      const res = await fetch(RELAY_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          api_key: key,
+          message: message,
+          questions: questions
+        })
+      });
+
+      const text = await res.text();
+      let data;
+      try{ data = JSON.parse(text); }catch(e){ data = { raw: text }; }
+
+      if (!res.ok){
+        showError(
+          'Got an error back (' + res.status + ')',
+          'Check that your key is valid and has Jev access, and that the n8n relay workflow is active.',
+          JSON.stringify(data, null, 2)
+        );
+        return;
+      }
+
+      const scores = parseResponse(data, questions);
+      if (!scores){
+        showError(
+          'Got a response but couldn\'t read the scores out of it',
+          'The response shape didn\'t match what this page expects. Raw response below — if you can see the field names Jev actually used, this page\'s parseResponse() function is the only place that needs updating.',
+          JSON.stringify(data, null, 2)
+        );
+        return;
+      }
+
+      renderResult(scores, data);
+
+    }catch(err){
+      showError(
+        'Could not reach the relay',
+        'Check that the n8n workflow is active and RELAY_URL in this page is the correct Production URL. The equivalent direct call (won\'t work from a browser, but useful for testing from a terminal) is:',
+        buildCurl(key, message, questions)
+      );
+    }finally{
+      runBtn.disabled = false;
+      runBtn.classList.remove('loading');
+      runBtnLabel.textContent = 'Run it through Jev';
+    }
+  }
+
+  runBtn.addEventListener('click', run);
+  runAgainBtn.addEventListener('click', function(){
+    resultEl.classList.remove('show');
+    resultEl.style.display = 'none';
+    messageEl.focus();
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  });
+
+  copyBtn.addEventListener('click', async function(){
+    const txt = resultEl.dataset.shareText || '';
+    try{
+      await navigator.clipboard.writeText(txt);
+      copyBtn.textContent = 'copied';
+      setTimeout(function(){ copyBtn.textContent = 'copy result'; }, 1500);
+    }catch(e){
+      showError('Could not copy', 'Select and copy the verdict manually.');
+    }
+  });
+
+  rawToggle.addEventListener('click', function(){
+    const showing = rawOutput.style.display === 'block';
+    rawOutput.style.display = showing ? 'none' : 'block';
+    rawToggle.textContent = showing ? 'show raw response' : 'hide raw response';
+  });
+})();
+</script>
+</body>
+</html>
