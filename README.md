@@ -4,6 +4,7 @@ Paste a cold email or DM. Jev reads it in under a second and tells you if it lan
 
 ## Try it
 
+https://raoashwini21.github.io/cold-read/ 
 
 ## How it works
 
