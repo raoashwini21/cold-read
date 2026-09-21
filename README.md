@@ -4,7 +4,6 @@ Paste a cold email or DM. Jev reads it in under a second and tells you if it lan
 
 ## Try it
 
-[Live link here once GitHub Pages is on]
 
 ## How it works
 
